@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: miniapp-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Create .env
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/miniapp/' }}
+        run: |
+          if [ -n "$VITE_API_BASE_URL" ] && ! [[ "$VITE_API_BASE_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo 'VITE_API_BASE_URL must be empty (same origin) or an HTTPS URL'
+            exit 1
+          fi
+          if ! [[ "$VITE_BASE_PATH" =~ ^/([^[:space:]]*/)?$ ]]; then
+            echo 'VITE_BASE_PATH must start and end with "/", e.g. "/" or "/miniapp/"'
+            exit 1
+          fi
+          printf 'VITE_API_BASE_URL=%s\nVITE_BASE_PATH=%s\n' "$VITE_API_BASE_URL" "$VITE_BASE_PATH" > .env
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Stamp deployed revision
+        run: |
+          printf '{"commit":"%s","branch":"%s"}\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > dist/release.json
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload build
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          # Keep previous hashed assets for users with an already open mini app.
+          # Publish the new entry point only after every new asset is available.
+          rsync -az --delay-updates --exclude=index.html dist/ deploy@$SSH_HOST:/var/www/miniapp/
+          rsync -az --delay-updates dist/index.html deploy@$SSH_HOST:/var/www/miniapp/
+
+      - name: Verify published revision
+        env:
+          # Served under the CRM domain at VITE_BASE_PATH (see README)
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/miniapp/' }}
+        run: |
+          curl --fail --silent --show-error --max-time 20 --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache' \
+            "https://crm.osipovich.uz${VITE_BASE_PATH}release.json?commit=$GITHUB_SHA" -o /tmp/miniapp-release.json
+          node -e 'const release = JSON.parse(require("node:fs").readFileSync("/tmp/miniapp-release.json", "utf8")); if (release.commit !== process.env.GITHUB_SHA) throw new Error("Published revision does not match this deploy"); console.log("Published revision:", release.commit);'
