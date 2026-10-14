@@ -133,6 +133,9 @@ button.secondary { border: 1px solid color-mix(in srgb, var(--brand) 28%, transp
 .error { padding: 13px 14px; border-radius: 14px; background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
 .error p { margin: 0; }
 .error code { display: block; margin-top: 4px; font-size: 11px; opacity: .8; }
+.error-reference { margin-top: 10px; font-size: 12px; }
+.error-reference code { overflow-wrap: anywhere; user-select: all; }
+.error-reference .link { color: inherit; text-align: left; }
 
 .screen-state { display: grid; min-height: 70vh; place-content: center; justify-items: center; gap: 14px; color: var(--hint); text-align: center; }
 .screen-state p { margin: 0; font-size: 13px; }

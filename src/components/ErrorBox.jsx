@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 // Plain-language text for errors a client can run into; the raw code is always shown too,
 // which helps while testing against the backend
 function friendlyMessage(error) {
@@ -29,6 +31,30 @@ export default function ErrorBox({ error }) {
       <p>{friendlyMessage(error)}</p>
       {error.code && <code>{error.code}{error.status ? ` · ${error.status}` : ''}</code>}
       {error.metadata?.field && <code>{error.metadata.field}: {error.metadata.message}</code>}
+      {error.requestId && <ErrorReference requestId={error.requestId} key={error.requestId} />}
+    </div>
+  )
+}
+
+function ErrorReference({ requestId }) {
+  const [copyState, setCopyState] = useState('idle')
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(requestId)
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+  }
+
+  return (
+    <div className="error-reference">
+      <p>Номер ошибки: <code>{requestId}</code></p>
+      <button type="button" className="link" onClick={copy}>
+        {copyState === 'copied' ? 'Скопировано' : 'Скопировать для поддержки'}
+      </button>
+      {copyState === 'failed' && <p className="small" role="status">Не удалось скопировать. Выделите номер ошибки и скопируйте вручную.</p>}
     </div>
   )
 }

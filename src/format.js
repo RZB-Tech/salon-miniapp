@@ -7,14 +7,29 @@ export function formatDuration(minutes) {
   return [h && `${h} ч`, m && `${m} мин`].filter(Boolean).join(' ') || '0 мин'
 }
 
-// The API works in UTC; show times in the phone's local time
-export const formatDateTime = (iso) =>
-  new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+export const BOOKING_TIME_ZONE = 'Asia/Tashkent'
 
-// Value for <input type="datetime-local"> (local time, minutes precision)
-export function toLocalInputValue(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+// The API works in UTC; bookings always use the salon's time, even abroad.
+export const formatDateTime = (iso) =>
+  new Date(iso).toLocaleString('ru-RU', { timeZone: BOOKING_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+// Value for <input type="datetime-local"> in Tashkent, minutes precision.
+export function toBookingInputValue(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BOOKING_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date)
+  const part = (name) => parts.find((item) => item.type === name).value
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`
+}
+
+// Asia/Tashkent is UTC+5 without daylight saving; never use the phone's zone.
+export function bookingInputToUtc(value) {
+  const date = new Date(`${value}:00+05:00`)
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || Number.isNaN(date.getTime()) || toBookingInputValue(date) !== value) {
+    throw new Error('Проверьте дату и время записи.')
+  }
+  return date.toISOString()
 }
 
 export const REQUEST_STATUS = {

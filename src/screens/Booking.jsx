@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createRequest, getServices } from '../api'
-import { formatDuration, formatPrice, toLocalInputValue } from '../format'
+import { bookingInputToUtc, formatDuration, formatPrice, toBookingInputValue } from '../format'
 import { selectionHaptic, useBackButton } from '../telegram'
 import ErrorBox from '../components/ErrorBox'
 
@@ -11,7 +11,7 @@ export default function Booking({ tenant, onBack, onBooked }) {
   const [services, setServices] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [quantities, setQuantities] = useState({}) // service id -> quantity
-  const [start, setStart] = useState('')           // datetime-local value, local time
+  const [start, setStart] = useState('')           // datetime-local value, Tashkent time
   const [comment, setComment] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -40,8 +40,7 @@ export default function Booking({ tenant, onBack, onBooked }) {
       onBooked(await createRequest({
         tenant_id: tenant.id,
         services: selected.map((s) => ({ service_id: s.id, quantity: s.quantity })),
-        // The picked local time as an exact instant (the API stores UTC)
-        start_time_est: new Date(start).toISOString(),
+        start_time_est: bookingInputToUtc(start),
         comment: comment.trim() || null,
       }))
     } catch (err) {
@@ -85,8 +84,9 @@ export default function Booking({ tenant, onBack, onBooked }) {
       )}
 
       <label>Желаемое время начала *
-        <input type="datetime-local" value={start} min={toLocalInputValue(new Date())} onChange={(e) => setStart(e.target.value)} required />
+        <input type="datetime-local" value={start} min={toBookingInputValue(new Date())} onChange={(e) => setStart(e.target.value)} required />
       </label>
+      <p className="muted small">Время Ташкента (UTC+5).</p>
       <p className="muted small">Салон подтвердит время или предложит другое — вам придет сообщение в Telegram.</p>
 
       <label>Комментарий

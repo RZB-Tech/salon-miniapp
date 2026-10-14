@@ -44,6 +44,7 @@ export default function Requests() {
         <div><p className="eyebrow">ИСТОРИЯ ВИЗИТОВ</p><h1>Мои записи</h1></div>
         <button className="link" onClick={() => load(1)}>Обновить</button>
       </div>
+      <p className="muted small">Все записи — по времени Ташкента (UTC+5).</p>
       {items.length === 0 && <p className="muted">Заявок пока нет — выберите салон и отправьте первую.</p>}
       {items.map((request) => <RequestCard key={request.id} request={request} onChanged={replace} />)}
       {error && <ErrorBox error={error} />}

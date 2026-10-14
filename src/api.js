@@ -1,13 +1,14 @@
-import { getInitData } from './telegram'
+import { getInitData } from './telegram.js'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+const BASE_URL = import.meta.env?.VITE_API_BASE_URL || ''
 
 export class ApiError extends Error {
-  constructor(status, body) {
+  constructor(status, body, requestId) {
     super(body?.detail || `HTTP ${status}`)
     this.status = status
     this.code = body?.error_code   // e.g. GLOBAL_CLIENT_NOT_REGISTERED, VALIDATION_ERROR
     this.metadata = body?.metadata
+    this.requestId = requestId
   }
 }
 
@@ -21,7 +22,7 @@ async function request(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   })
   const data = await response.json().catch(() => null)
-  if (!response.ok) throw new ApiError(response.status, data)
+  if (!response.ok) throw new ApiError(response.status, data, response.headers.get('X-Request-ID') || undefined)
   return data
 }
 
